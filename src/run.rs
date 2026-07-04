@@ -5,6 +5,7 @@ use std::process::Command;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
+use crate::paths::warn_path_missing;
 use crate::{paths};
 use crate::desktop::{self, DesktopMetadata};
 use crate::container::Container;
@@ -65,6 +66,7 @@ pub fn add(appimage: PathBuf, edit: bool, force: bool) -> Result<()> {
         eprintln!("Warning: {e:#}");
     }
 
+    warn_path_missing(&bin_dir);
     print!("Successfully installed {}", metadata.name());
     println_version_or(metadata.version(), ".");
     Ok(())
