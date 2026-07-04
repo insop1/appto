@@ -1,7 +1,7 @@
+mod container;
 mod desktop;
 mod paths;
 mod run;
-mod container;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -16,6 +16,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    #[command(visible_aliases = ["install", "i"])]
     Add {
         path: PathBuf,
 
@@ -25,9 +26,14 @@ enum Commands {
         #[arg(short, long)]
         force: bool,
     },
+    #[command(visible_alias = "rm")]
     Remove {
-        name: String,
+        id: String,
+
+        #[arg(short, long)]
+        force: bool,
     },
+    #[command(visible_alias = "ls")]
     List,
 }
 
@@ -35,9 +41,9 @@ fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Add { path, edit, force } => run::add(path, edit, force)?,
-        Commands::Remove { name } => todo!(),
-        Commands::List => todo!(),
+        Commands::Add { path, edit, force } => run::add(&path, edit, force)?,
+        Commands::Remove { id, force } => run::remove(&id, force)?,
+        Commands::List => run::list()?,
     };
     Ok(())
 }

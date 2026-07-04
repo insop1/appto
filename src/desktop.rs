@@ -1,8 +1,8 @@
 use anyhow::{Context, Result, bail};
+use std::fmt::Write;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::fmt::Write;
 
 use crate::container::Container;
 
@@ -13,9 +13,15 @@ pub struct DesktopMetadata {
 }
 
 impl DesktopMetadata {
-    pub fn name(&self) -> &str { &self.name }
-    pub fn slug(&self) -> &str { &self.slug }
-    pub fn version(&self) -> Option<&str> { self.version.as_deref() }
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    pub fn slug(&self) -> &str {
+        &self.slug
+    }
+    pub fn version(&self) -> Option<&str> {
+        self.version.as_deref()
+    }
 }
 
 pub fn updated_desktop(contents: &str, container: &Container) -> Result<String> {
@@ -24,11 +30,13 @@ pub fn updated_desktop(contents: &str, container: &Container) -> Result<String> 
     for line in contents.lines() {
         if line.strip_prefix("Icon=").is_some() {
             writeln!(output, "Icon={}", container.icon_path().display())?;
-        }
-        else if let Some(v) = line.strip_prefix("Exec=") {
-            writeln!(output, "Exec={}", rewrite_exec(v, &container.appimage_path()))?;
-        }
-        else {
+        } else if let Some(v) = line.strip_prefix("Exec=") {
+            writeln!(
+                output,
+                "Exec={}",
+                rewrite_exec(v, &container.appimage_path())
+            )?;
+        } else {
             writeln!(output, "{}", line)?;
         }
     }
@@ -42,11 +50,10 @@ pub fn rewrite_exec(value: &str, container_appimage: &Path) -> String {
     value
         .split_whitespace()
         .map(|tok| {
-            if !replaced && tok != "env" && !tok.contains("=") {
+            if !replaced && tok != "env" && !tok.contains('=') {
                 replaced = true;
                 bin.as_str()
-            }
-            else {
+            } else {
                 tok
             }
         })
@@ -64,28 +71,41 @@ pub fn desktop_metadata(desktop: &Path) -> Result<DesktopMetadata> {
         if name.is_some() && version.is_some() {
             break;
         }
-        if name.is_none() && let Some(v) = line.strip_prefix("Name=")
+        if name.is_none()
+            && let Some(v) = line.strip_prefix("Name=")
         {
             name = Some(v.trim().to_string());
-        } 
-        else if version.is_none() && let Some(v) = line.strip_prefix("X-AppImage-Version=")
+        } else if version.is_none()
+            && let Some(v) = line.strip_prefix("X-AppImage-Version=")
         {
             version = Some(v.trim().to_string());
         }
     }
 
     let name = name.context("No Name= field in .desktop")?;
-    let slug = name
-            .to_lowercase()
-            .chars()
-            .map(|c| if c.is_alphanumeric() || c == '.' { c } else { '-' })
-            .collect::<String>()
-            .split('-')
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>()
-            .join("-");
+    let slug = slug(&name);
+    Ok(DesktopMetadata {
+        name,
+        slug,
+        version,
+    })
+}
 
-    Ok(DesktopMetadata { name, slug, version })
+pub fn slug(name: &str) -> String {
+    name.to_lowercase()
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '.' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 pub fn edit_desktop(desktop: &Path) -> Result<()> {
