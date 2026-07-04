@@ -33,14 +33,10 @@ pub fn add(appimage: &Path, edit: bool, force: bool) -> Result<()> {
     }
 
     container.create()?;
-
     let original_content = fs::read_to_string(&desktop)?;
     let new_content = desktop::updated_desktop(&original_content, &container)?;
-    container.install_desktop(&new_content)?;
-
     let dir_icon = squash_dir.join(".DirIcon");
-    container.install_icon(&dir_icon)?;
-    container.install_appimage(appimage)?;
+    container.install(&new_content, &dir_icon, appimage)?;
 
     // Removes squashfs-root after installing container
     if let Err(e) = fs::remove_dir_all(squash_dir) {
@@ -108,7 +104,7 @@ fn confirm_overwrite(container: &Container, overwrite_metadata: &DesktopMetadata
     let metadata = desktop::desktop_metadata(&container.desktop_path())?;
 
     print!(
-        "\nAn app with id '{}' already exists: {}",
+        "An app with id '{}' already exists: {}",
         container.id(),
         metadata.name()
     );

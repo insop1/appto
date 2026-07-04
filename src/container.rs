@@ -16,6 +16,7 @@ impl Container {
         }
     }
 
+    // Getters
     pub fn appimage_path(&self) -> PathBuf {
         self.root.join(format!("{}.AppImage", self.id))
     }
@@ -25,36 +26,41 @@ impl Container {
     pub fn desktop_path(&self) -> PathBuf {
         self.root.join(format!("{}.desktop", self.id))
     }
-    #[allow(dead_code)]
     pub fn root(&self) -> &Path {
         &self.root
     }
     pub fn id(&self) -> &str {
         &self.id
     }
+    pub fn desktop_link(&self, application_dir: &Path) -> PathBuf {
+        application_dir.join(format!("{}.desktop", self.id))
+    }
+    pub fn bin_link(&self, bin_dir: &Path) -> PathBuf {
+        bin_dir.join(&self.id)
+    }
 
+    // Installs
     pub fn create(&self) -> Result<()> {
         fs::create_dir_all(&self.root)?;
         Ok(())
     }
     pub fn install_desktop(&self, contents: &str) -> Result<()> {
-        fs::write(self.desktop_path(), contents).context("Failed to write .desktop file")
+        atomic_write(contents, &self.desktop_path())
     }
     pub fn install_icon(&self, dir_icon: &Path) -> Result<()> {
-        fs::copy(dir_icon, self.icon_path()).context("Failed to install icon")?;
-        Ok(())
+        atomic_copy(dir_icon, &self.icon_path())
     }
     pub fn install_appimage(&self, appimage: &Path) -> Result<()> {
-        fs::copy(appimage, self.appimage_path()).context("Failed to install AppImage")?;
+        atomic_copy(appimage, &self.appimage_path())
+    }
+    pub fn install(&self, desktop_contents: &str, dir_icon: &Path, appimage: &Path) -> Result<()> {
+        self.install_desktop(desktop_contents)?;
+        self.install_icon(dir_icon)?;
+        self.install_appimage(appimage)?;
         Ok(())
     }
-
-    fn desktop_link(&self, application_dir: &Path) -> PathBuf {
-        application_dir.join(format!("{}.desktop", self.id))
-    }
-    fn bin_link(&self, bin_dir: &Path) -> PathBuf {
-        bin_dir.join(&self.id)
-    }
+    
+    // Symlinks
     pub fn symlink_desktop(&self, application_dir: &Path) -> Result<()> {
         let link = self.desktop_link(application_dir);
         clear_symlink(&link)?;
@@ -73,6 +79,20 @@ impl Container {
         let link = self.bin_link(bin_dir);
         remove_symlink(&link, &self.appimage_path())
     }
+}
+
+fn atomic_copy(from: &Path, to: &Path) -> Result<()> {
+    let tmp = format!("{}.tmp", to.display());
+    fs::copy(from, &tmp).with_context(|| format!("Failed to copy to {tmp}"))?;
+    fs::rename(&tmp, to).context("Failed to atomic swap")?;
+    Ok(())
+}
+
+fn atomic_write(contents: &str, to: &Path) -> Result<()> {
+    let tmp = format!("{}.tmp", to.display());
+    fs::write(&tmp, contents).with_context(|| format!("Failed to write to {tmp}"))?;
+    fs::rename(&tmp, to).context("Failed to atomic swap")?;
+    Ok(())
 }
 
 fn remove_symlink(link: &Path, expected_target: &Path) -> Result<()> {
