@@ -1,10 +1,11 @@
-mod run;
-mod paths;
 mod desktop;
+mod paths;
+mod run;
+mod container;
 
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use anyhow::{Result};
 
 #[derive(Parser)]
 #[command(name = "appto")]
@@ -27,7 +28,7 @@ enum Commands {
     Remove {
         name: String,
     },
-    List
+    List,
 }
 
 fn main() -> Result<()> {
