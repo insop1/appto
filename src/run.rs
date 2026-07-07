@@ -9,7 +9,7 @@ use crate::container::Container;
 use crate::desktop::{self, DesktopMetadata};
 use crate::paths;
 
-pub fn add(appimage: &Path, edit: bool, force: bool) -> Result<()> {
+pub fn add(appimage: &Path, force: bool) -> Result<()> {
     let cache_dir = paths::appto_cache()?;
     let data_dir = paths::appto_data()?;
     let squash_dir = cache_dir.join("squashfs-root");
@@ -24,7 +24,7 @@ pub fn add(appimage: &Path, edit: bool, force: bool) -> Result<()> {
         .context("Could not find .desktop in AppImage")?;
 
     // Overwrite check then lock
-    let mut metadata = desktop::desktop_metadata(&desktop)?;
+    let metadata = desktop::desktop_metadata(&desktop)?;
 
     let container = Container::new(&data_dir, metadata.slug());
     if !force && container.root().is_dir() && !confirm_overwrite(&container, &metadata)? {
@@ -41,18 +41,6 @@ pub fn add(appimage: &Path, edit: bool, force: bool) -> Result<()> {
     // Removes squashfs-root after installing container
     if let Err(e) = fs::remove_dir_all(squash_dir) {
         eprintln!("Could not remove squashfs-root temp file: {e:#}");
-    }
-
-    // Reloads metadata after user edits
-    if edit {
-        if let Err(e) = desktop::edit_desktop(&container.desktop_path()) {
-            eprintln!("warning: {:#}, continuing with defaults", e);
-        } else {
-            match desktop::desktop_metadata(&container.desktop_path()) {
-                Ok(m) => metadata = m,
-                Err(e) => eprintln!("warning: edited file failed to parse: {e:#}"),
-            }
-        }
     }
 
     let application_dir = paths::application_dir()?;

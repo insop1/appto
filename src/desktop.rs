@@ -1,8 +1,7 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use std::fmt::Write;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 use crate::container::Container;
 
@@ -106,24 +105,4 @@ pub fn slug(name: &str) -> String {
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
         .join("-")
-}
-
-pub fn edit_desktop(desktop: &Path) -> Result<()> {
-    let editor = std::env::var("VISUAL")
-        .or_else(|_| std::env::var("EDITOR"))
-        .context("Neither $EDITOR nor $VISUAL are set")?;
-
-    let mut parts = editor.split_whitespace();
-    let cmd = parts.next().context("$EDITOR/$VISUAL is empty")?;
-    let status = Command::new(cmd)
-        .args(parts)
-        .arg(desktop)
-        .status()
-        .with_context(|| format!("Failed to launch editor '{editor}'"))?;
-
-    if !status.success() {
-        bail!("Editor exited with {}", status);
-    }
-
-    Ok(())
 }

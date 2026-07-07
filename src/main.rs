@@ -20,9 +20,6 @@ enum Commands {
     Add {
         path: PathBuf,
 
-        #[arg(long)]
-        edit: bool,
-
         #[arg(short, long)]
         force: bool,
     },
@@ -41,7 +38,7 @@ fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Add { path, edit, force } => run::add(&path, edit, force)?,
+        Commands::Add { path, force } => run::add(&path, force)?,
         Commands::Remove { id, force } => run::remove(&id, force)?,
         Commands::List => run::list()?,
     };
