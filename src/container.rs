@@ -55,7 +55,9 @@ impl Container {
     }
     pub fn install(&self, desktop_contents: &str, dir_icon: &Path, appimage: &Path) -> Result<()> {
         self.install_desktop(desktop_contents)?;
-        self.install_icon(dir_icon)?;
+        if let Err(e) = self.install_icon(&dir_icon) {
+            eprintln!("Warning: could not install icon: {e:#}");
+        }
         self.install_appimage(appimage)?;
         Ok(())
     }
