@@ -1,6 +1,6 @@
 # appto
 
-**appto** is a minimal CLI tool that integrates AppImages into your desktop. It is not a launcher nor a package manager, it just runs when you call it and gets out of the way. Meant for people who aren't AppImage enthusiasts and just want them discoverable by the system.
+**appto** is a minimal CLI tool that integrates AppImages into your desktop. It is not a launcher nor a package manager, it just runs once when you call it. Meant for people who aren't AppImage enthusiasts and just want them discoverable by the system.
 
 ## Installation
 
@@ -41,7 +41,7 @@ appto remove test-example
 ## Where things live
 
 **appto** uses these paths by default, however they respect XDG variables.
-- App containers: `~/.local/share/appto/<id>/`
+- App containers: `~/.local/share/appto/`
 - Desktop entries: symlinked into `~/.local/share/applications/`
 - Binaries: symlinked into `~/.local/bin/` (No XDG)
 - Cache: `~/.cache/appto/` 
