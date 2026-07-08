@@ -2,6 +2,9 @@
 name = "appto"
 version = "0.1.0"
 edition = "2024"
+description = "A minimal CLI tool that integrates AppImages into your desktop"
+license = "MIT"
+repository = "https://github.com/insop1/appto"
 
 [dependencies]
 anyhow = "1.0.103"
