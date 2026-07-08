@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use std::fmt::Write;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::container::Container;
 
@@ -61,7 +61,7 @@ pub fn rewrite_exec(value: &str, container_appimage: &Path) -> String {
 }
 
 pub fn desktop_metadata(desktop: &Path) -> Result<DesktopMetadata> {
-    let contents = fs::read_to_string(desktop).context("Failed to read .desktop file")?;
+    let contents = fs::read_to_string(desktop).context("Failed to read squash .desktop file")?;
 
     let mut name = None;
     let mut version = None;
@@ -88,6 +88,14 @@ pub fn desktop_metadata(desktop: &Path) -> Result<DesktopMetadata> {
         slug,
         version,
     })
+}
+
+pub fn desktop_from(path: &Path) -> Result<PathBuf> {
+    fs::read_dir(path)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .find(|p| p.extension().is_some_and(|ext| ext == "desktop"))
+        .context("Could not find .desktop in AppImage")
 }
 
 pub fn slug(name: &str) -> String {

@@ -59,7 +59,7 @@ impl Container {
         self.install_appimage(appimage)?;
         Ok(())
     }
-    
+
     // Symlinks
     pub fn symlink_desktop(&self, application_dir: &Path) -> Result<()> {
         let link = self.desktop_link(application_dir);
@@ -123,4 +123,14 @@ fn clear_symlink(link: &Path) -> Result<()> {
         Err(_) => {}
     }
     Ok(())
+}
+
+pub fn containers_from(path: &Path) -> Result<Vec<Container>> {
+    Ok(fs::read_dir(path)
+        .context("Failed to read appto data dir")?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_dir())
+        .filter_map(|e| e.file_name().into_string().ok())
+        .map(|id| Container::new(path, &id))
+        .collect())
 }

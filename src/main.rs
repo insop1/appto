@@ -32,6 +32,9 @@ enum Commands {
     },
     #[command(visible_alias = "ls")]
     List,
+    Sync {
+        id: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -41,6 +44,7 @@ fn main() -> Result<()> {
         Commands::Add { path, force } => run::add(&path, force)?,
         Commands::Remove { id, force } => run::remove(&id, force)?,
         Commands::List => run::list()?,
+        Commands::Sync { id } => run::sync(&id)?,
     };
     Ok(())
 }

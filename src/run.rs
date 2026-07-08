@@ -5,6 +5,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
 
+use crate::container;
 use crate::container::Container;
 use crate::desktop::{self, DesktopMetadata};
 use crate::paths;
@@ -17,15 +18,10 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
 
     extract_appimage(appimage, &cache_dir, &squash_dir)?;
     // By now we should have squashfs-root set
-    let desktop = fs::read_dir(&squash_dir)?
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .find(|p| p.extension().is_some_and(|ext| ext == "desktop"))
-        .context("Could not find .desktop in AppImage")?;
-
-    // Overwrite check then lock
+    let desktop = desktop::desktop_from(&squash_dir)?;
     let metadata = desktop::desktop_metadata(&desktop)?;
 
+    // Overwrite check then lock
     let container = Container::new(&data_dir, metadata.slug());
     if !force && container.root().is_dir() && !confirm_overwrite(&container, &metadata)? {
         println!("Aborted.");
@@ -74,15 +70,27 @@ fn extract_appimage(appimage: &Path, cache_dir: &Path, squash_dir: &Path) -> Res
     perms.set_mode(perms.mode() | 0o111);
     fs::set_permissions(&appimage, perms).context("Failed to make AppImage executable")?;
 
-    let status = Command::new(appimage)
-        .arg("--appimage-extract")
-        .current_dir(cache_dir)
-        .stdout(std::process::Stdio::null())
-        .status()
-        .context("Failed to extract AppImage")?;
+    // Dumb extraction pattern
+    let patterns = [
+        "*.desktop",
+        "*.png",
+        "*.svg",
+        ".DirIcon",
+        "usr/share/icons/*",
+        "usr/share/pixmaps/*",
+    ];
+    for pattern in patterns {
+        let status = Command::new(&appimage)
+            .arg("--appimage-extract")
+            .arg(pattern)
+            .current_dir(cache_dir)
+            .stdout(std::process::Stdio::null())
+            .status()
+            .context("Failed to extract AppImage")?;
 
-    if !status.success() {
-        bail!("extraction failed with {}", status);
+        if !status.success() {
+            bail!("extraction failed with {}", status);
+        }
     }
 
     Ok(())
@@ -159,27 +167,89 @@ pub fn list() -> Result<()> {
     // Vec<Container> for each directories. For each, get desktop metadata.
     // Format: - id (name) version
 
-    let containers: Vec<Container> = fs::read_dir(&data_dir)
-        .context("Failed to read appto data dir")?
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().into_string().ok())
-        .map(|id| Container::new(&data_dir, &id))
-        .collect();
-
+    let containers = container::containers_from(&data_dir)?;
     println!("Installed AppImages: (ID, NAME, VERSION).");
     // Checks if desktop entry is valid, if not print (broken) for name
     for con in containers {
         match desktop::desktop_metadata(&con.desktop_path()) {
             Ok(m) => {
-                print!("- {} ({})", con.id(), m.name());
+                print!("- {} ({}", con.id(), m.name());
                 match m.version() {
-                    Some(v) => println!(" {}", v),
-                    None => println!(),
+                    Some(v) => println!(" v{})", v),
+                    None => println!(")"),
                 }
             }
             Err(_) => println!("- {} (broken)", con.id()),
         }
     }
     Ok(())
+}
+
+pub fn sync(id: &Option<String>) -> Result<()> {
+    let data_dir = paths::appto_data()?;
+    let cache_dir = paths::appto_cache()?;
+    let squash_dir = cache_dir.join("squashfs-root");
+
+    match id {
+        Some(id) => sync_one(id, &data_dir, &cache_dir, &squash_dir)?,
+        None => sync_all(&data_dir, &cache_dir, &squash_dir)?,
+    }
+    Ok(())
+}
+
+fn sync_one(id: &str, data_dir: &Path, cache_dir: &Path, squash_dir: &Path) -> Result<()> {
+    let slug = desktop::slug(id);
+    let container = Container::new(data_dir, &slug);
+    if !container.root().is_dir() {
+        bail!("{} is not installed", container.id());
+    }
+
+    if sync_container(&container, cache_dir, squash_dir)? {
+        println!("Synced {}", container.id());
+    } else {
+        println!("{} is already up to date.", container.id());
+    }
+    Ok(())
+}
+
+fn sync_all(data_dir: &Path, cache_dir: &Path, squash_dir: &Path) -> Result<()> {
+    let containers = container::containers_from(data_dir)?;
+
+    let mut synced = 0;
+    for con in containers {
+        if !sync_container(&con, cache_dir, squash_dir)? {
+            continue;
+        }
+
+        println!("Synced {}", con.id());
+        synced += 1;
+    }
+
+    if synced == 0 {
+        println!("Everything up to date.");
+    } else {
+        println!("Synced {synced} container(s).");
+    }
+    Ok(())
+}
+
+pub fn sync_container(container: &Container, cache_dir: &Path, squash_dir: &Path) -> Result<bool> {
+    extract_appimage(&container.appimage_path(), cache_dir, squash_dir)?;
+    let appimage_desktop = desktop::desktop_from(squash_dir)?;
+    let installed_desktop = container.desktop_path();
+
+    let appimage_contents =
+        fs::read_to_string(appimage_desktop).context("Failed to read squash .desktop file")?;
+    let appimage_contents = desktop::updated_desktop(&appimage_contents, container)?;
+    let installed_contents =
+        fs::read_to_string(&installed_desktop).context("Failed to read container .desktop file")?;
+
+    if let Err(e) = fs::remove_dir_all(squash_dir) {
+        eprintln!("Could not remove squashfs-root temp file: {e:#}");
+    }
+    if appimage_contents == installed_contents {
+        return Ok(false); // up to date, nothing written
+    }
+    container.install_desktop(&appimage_contents)?;
+    Ok(true)
 }
