@@ -60,9 +60,7 @@ pub fn rewrite_exec(value: &str, container_appimage: &Path) -> String {
         .join(" ")
 }
 
-pub fn desktop_metadata(desktop: &Path) -> Result<DesktopMetadata> {
-    let contents = fs::read_to_string(desktop).context("Failed to read squash .desktop file")?;
-
+pub fn desktop_metadata(contents: &str) -> Result<DesktopMetadata> {
     let mut name = None;
     let mut version = None;
 

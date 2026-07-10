@@ -19,7 +19,8 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
     extract_appimage(appimage, &cache_dir, &squash_dir)?;
     // By now we should have squashfs-root set
     let desktop = desktop::desktop_from(&squash_dir)?;
-    let metadata = desktop::desktop_metadata(&desktop)?;
+    let contents = fs::read_to_string(&desktop).context("Failed to read squash .desktop file")?;
+    let metadata = desktop::desktop_metadata(&contents)?;
 
     // Overwrite check then lock
     let container = Container::new(&data_dir, metadata.slug());
@@ -50,8 +51,10 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
     }
 
     paths::warn_path_missing(&bin_dir);
-    print!("Successfully installed {}", metadata.name());
-    println_version_or(metadata.version(), ".");
+    match metadata.version() {
+        Some(v) => println!("Sucessfully installed {} v{v}", metadata.name()),
+        None => println!("Sucessfully installed {}", metadata.name()),
+    }
     Ok(())
 }
 
@@ -97,17 +100,27 @@ fn extract_appimage(appimage: &Path, cache_dir: &Path, squash_dir: &Path) -> Res
 }
 
 fn confirm_overwrite(container: &Container, overwrite_metadata: &DesktopMetadata) -> Result<bool> {
-    let metadata = desktop::desktop_metadata(&container.desktop_path())?;
+    let desktop = container.desktop_path();
+    let contents =
+        fs::read_to_string(&desktop).context("Failed to read container .desktop file")?;
+    let metadata = desktop::desktop_metadata(&contents)?;
 
-    print!(
-        "An app with id '{}' already exists: {}",
-        container.id(),
-        metadata.name()
-    );
-    println_version_or(metadata.version(), "");
-
-    print!("Installing: {}", overwrite_metadata.name());
-    println_version_or(overwrite_metadata.version(), "");
+    match metadata.version() {
+        Some(v) => println!(
+            "An app with id '{}' already exists: {} v{v}",
+            container.id(),
+            metadata.name()
+        ),
+        None => println!(
+            "An app with id '{}' already exists: {}",
+            container.id(),
+            metadata.name()
+        ),
+    }
+    match overwrite_metadata.version() {
+        Some(v) => println!("Installing: {} v{v}", overwrite_metadata.name()),
+        None => println!("Installing: {}", overwrite_metadata.name()),
+    }
 
     prompt("Overwrite? [y/N]: ")
 }
@@ -125,13 +138,6 @@ fn prompt(prompt: &str) -> Result<bool> {
             "n" | "no" | "" => return Ok(false),
             _ => continue,
         }
-    }
-}
-
-fn println_version_or(version: Option<&str>, fallback: &str) {
-    match version {
-        Some(v) => println!(" ({v})."),
-        None => println!("{fallback}"),
     }
 }
 
@@ -171,7 +177,10 @@ pub fn list() -> Result<()> {
     println!("Installed AppImages: (ID, NAME, VERSION).");
     // Checks if desktop entry is valid, if not print (broken) for name
     for con in containers {
-        match desktop::desktop_metadata(&con.desktop_path()) {
+        let desktop = con.desktop_path();
+        let contents =
+            fs::read_to_string(&desktop).context("Failed to read container .desktop file")?;
+        match desktop::desktop_metadata(&contents) {
             Ok(m) => {
                 print!("- {} ({}", con.id(), m.name());
                 match m.version() {
@@ -185,61 +194,73 @@ pub fn list() -> Result<()> {
     Ok(())
 }
 
-pub fn sync(id: &Option<String>) -> Result<()> {
+pub fn sync(id: &Option<String>, check: bool) -> Result<()> {
     let data_dir = paths::appto_data()?;
     let cache_dir = paths::appto_cache()?;
     let squash_dir = cache_dir.join("squashfs-root");
 
+    if check {
+        println!("Check mode: no changes will be made");
+    }
     match id {
-        Some(id) => sync_one(id, &data_dir, &cache_dir, &squash_dir)?,
-        None => sync_all(&data_dir, &cache_dir, &squash_dir)?,
+        Some(id) => sync_one(id, &data_dir, &cache_dir, &squash_dir, check)?,
+        None => sync_all(&data_dir, &cache_dir, &squash_dir, check)?,
     }
     Ok(())
 }
 
-fn sync_one(id: &str, data_dir: &Path, cache_dir: &Path, squash_dir: &Path) -> Result<()> {
+fn sync_one(
+    id: &str,
+    data_dir: &Path,
+    cache_dir: &Path,
+    squash_dir: &Path,
+    check: bool,
+) -> Result<()> {
     let slug = desktop::slug(id);
     let container = Container::new(data_dir, &slug);
     if !container.root().is_dir() {
         bail!("{} is not installed", container.id());
     }
 
-    if sync_container(&container, cache_dir, squash_dir)? {
-        println!("Synced {}", container.id());
-    } else {
+    if !sync_container(&container, cache_dir, squash_dir, check)? {
         println!("{} is already up to date.", container.id());
     }
     Ok(())
 }
 
-fn sync_all(data_dir: &Path, cache_dir: &Path, squash_dir: &Path) -> Result<()> {
+fn sync_all(data_dir: &Path, cache_dir: &Path, squash_dir: &Path, check: bool) -> Result<()> {
     let containers = container::containers_from(data_dir)?;
 
     let mut synced = 0;
     for con in containers {
-        if !sync_container(&con, cache_dir, squash_dir)? {
+        if !sync_container(&con, cache_dir, squash_dir, check)? {
             continue;
         }
-
-        println!("Synced {}", con.id());
         synced += 1;
     }
 
     if synced == 0 {
         println!("Everything up to date.");
+    } else if check {
+        println!("{synced} container(s) would be synced.");
     } else {
         println!("Synced {synced} container(s).");
     }
     Ok(())
 }
 
-pub fn sync_container(container: &Container, cache_dir: &Path, squash_dir: &Path) -> Result<bool> {
+pub fn sync_container(
+    container: &Container,
+    cache_dir: &Path,
+    squash_dir: &Path,
+    check: bool,
+) -> Result<bool> {
     extract_appimage(&container.appimage_path(), cache_dir, squash_dir)?;
     let appimage_desktop = desktop::desktop_from(squash_dir)?;
     let installed_desktop = container.desktop_path();
 
     let appimage_contents =
-        fs::read_to_string(appimage_desktop).context("Failed to read squash .desktop file")?;
+        fs::read_to_string(&appimage_desktop).context("Failed to read squash .desktop file")?;
     let appimage_contents = desktop::updated_desktop(&appimage_contents, container)?;
     let installed_contents =
         fs::read_to_string(&installed_desktop).context("Failed to read container .desktop file")?;
@@ -247,9 +268,38 @@ pub fn sync_container(container: &Container, cache_dir: &Path, squash_dir: &Path
     if let Err(e) = fs::remove_dir_all(squash_dir) {
         eprintln!("Could not remove squashfs-root temp file: {e:#}");
     }
+
     if appimage_contents == installed_contents {
-        return Ok(false); // up to date, nothing written
+        return Ok(false);
     }
-    container.install_desktop(&appimage_contents)?;
+    if !check {
+        container.install_desktop(&appimage_contents)?;
+    }
+
+    // Gracefully handles instead of panic
+    let verb = if check { "Would sync" } else { "Synced" };
+    let (appimage_metadata, installed_metadata) = match (
+        desktop::desktop_metadata(&appimage_contents),
+        desktop::desktop_metadata(&installed_contents),
+    ) {
+        (Ok(a), Ok(i)) => (a, i),
+        _ => {
+            eprintln!(
+                "Warning: could not parse desktop metadata for {}",
+                container.id()
+            );
+            println!("{verb}: {}", container.id());
+            return Ok(true);
+        }
+    };
+
+    match (installed_metadata.version(), appimage_metadata.version()) {
+        (Some(i), Some(a)) => println!(
+            "{verb}: {} v{i} -> {} v{a}",
+            installed_metadata.name(),
+            appimage_metadata.name()
+        ),
+        _ => println!("{verb}: {}", appimage_metadata.name()),
+    }
     Ok(true)
 }

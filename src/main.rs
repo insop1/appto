@@ -34,6 +34,9 @@ enum Commands {
     List,
     Sync {
         id: Option<String>,
+
+        #[arg(long, visible_alias = "dry-run")]
+        check: bool,
     },
 }
 
@@ -44,7 +47,7 @@ fn main() -> Result<()> {
         Commands::Add { path, force } => run::add(&path, force)?,
         Commands::Remove { id, force } => run::remove(&id, force)?,
         Commands::List => run::list()?,
-        Commands::Sync { id } => run::sync(&id)?,
+        Commands::Sync { id, check } => run::sync(&id, check)?,
     };
     Ok(())
 }
