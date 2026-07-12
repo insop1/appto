@@ -52,7 +52,7 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
     paths::warn_path_missing(&bin_dir);
     match metadata.version() {
         Some(v) => println!("Successfully installed {} v{v}", metadata.name()),
-        None => println!("Sucessfully installed {}", metadata.name()),
+        None => println!("Successfully installed {}", metadata.name()),
     }
     Ok(())
 }
@@ -100,27 +100,21 @@ fn extract_appimage(appimage: &Path, cache_dir: &Path, squash_dir: &Path) -> Res
 
 fn confirm_overwrite(container: &Container, overwrite_metadata: &DesktopMetadata) -> Result<bool> {
     let desktop = container.desktop_path();
-    // We're letting metadata handle the error here so its okay to make new string
-    let contents = match fs::read_to_string(&desktop) {
-        Ok(c) => c,
-        _ => String::new(),
-    };
+    let contents = fs::read_to_string(&desktop).unwrap_or_default();
 
     match desktop::desktop_metadata(&contents) {
-        Ok(meta) => {
-            match meta.version() {
-                Some(v) => println!(
-                    "An app with id '{}' already exists: {} v{v}",
-                    container.id(),
-                    meta.name()
-                ),
-                None => println!(
-                    "An app with id '{}' already exists: {}",
-                    container.id(),
-                    meta.name()
-                ),
-            }
-        }
+        Ok(meta) => match meta.version() {
+            Some(v) => println!(
+                "An app with id '{}' already exists: {} v{v}",
+                container.id(),
+                meta.name()
+            ),
+            None => println!(
+                "An app with id '{}' already exists: {}",
+                container.id(),
+                meta.name()
+            ),
+        },
         Err(_) => {
             println!("An app with id '{}' already exists.", container.id());
         }
@@ -179,29 +173,42 @@ pub fn remove(id: &str, force: bool) -> Result<()> {
 pub fn list() -> Result<()> {
     let data_dir = paths::appto_data()?;
     // Vec<Container> for each directories. For each, get desktop metadata.
-    // Format: - id (name) version
+
+    let id_width = 32;
+    let name_width = 24;
 
     let containers = container::containers_from(&data_dir)?;
-    println!("Installed AppImages: (ID, NAME, VERSION).");
+    println!("{:<id_width$} {:<name_width$} VERSION", "ID", "NAME");
     // Checks if desktop entry is valid, if not print (broken) for name
-    for con in containers {
-        let desktop = con.desktop_path();
-        let contents = match fs::read_to_string(&desktop) {
-            Ok(c) => c,
-            _ => String::new(),
-        };
+    for container in containers {
+        let desktop = container.desktop_path();
+        let contents = fs::read_to_string(&desktop).unwrap_or_default();
         match desktop::desktop_metadata(&contents) {
-            Ok(m) => {
-                print!("- {} ({}", con.id(), m.name());
-                match m.version() {
-                    Some(v) => println!(" v{})", v),
-                    None => println!(")"),
-                }
-            }
-            Err(_) => println!("- {} (broken)", con.id()),
+            Ok(m) => match m.version() {
+                Some(v) => println!(
+                    "{:<id_width$} {:<name_width$} {v}",
+                    container.id(),
+                    truncate(m.name(), name_width)
+                ),
+                None => println!(
+                    "{:<id_width$} {:<name_width$}",
+                    container.id(),
+                    truncate(m.name(), name_width)
+                ),
+            },
+            Err(_) => println!("{:<id_width$} {:<name_width$}", container.id(), "BROKEN"),
         }
     }
     Ok(())
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    let max = max.saturating_sub(3);
+    if s.chars().count() > max {
+        let trim: String = s.chars().take(max).collect();
+        return format!("{trim}...");
+    }
+    String::from(s)
 }
 
 pub fn sync(id: &Option<String>, check: bool) -> Result<()> {
@@ -273,10 +280,7 @@ pub fn sync_container(
         fs::read_to_string(&appimage_desktop).context("Failed to read squash .desktop file")?;
     let appimage_contents = desktop::updated_desktop(&appimage_contents, container)?;
     // If container doesn't have a desktop, just sync anyways
-    let installed_contents = match fs::read_to_string(&installed_desktop) {
-        Ok(c) => c,
-        _ => String::new(),
-    };
+    let installed_contents = fs::read_to_string(&installed_desktop).unwrap_or_default();
 
     if let Err(e) = fs::remove_dir_all(squash_dir) {
         eprintln!("Could not remove squashfs-root temp file: {e:#}");
