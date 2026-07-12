@@ -30,8 +30,7 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
     }
 
     container.create()?;
-    let original_content = fs::read_to_string(&desktop)?;
-    let new_content = desktop::updated_desktop(&original_content, &container)?;
+    let new_content = desktop::updated_desktop(&contents, &container)?;
     let dir_icon = squash_dir.join(".DirIcon");
     container.install(&new_content, &dir_icon, appimage)?;
 
@@ -52,7 +51,7 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
 
     paths::warn_path_missing(&bin_dir);
     match metadata.version() {
-        Some(v) => println!("Sucessfully installed {} v{v}", metadata.name()),
+        Some(v) => println!("Successfully installed {} v{v}", metadata.name()),
         None => println!("Sucessfully installed {}", metadata.name()),
     }
     Ok(())
@@ -73,7 +72,7 @@ fn extract_appimage(appimage: &Path, cache_dir: &Path, squash_dir: &Path) -> Res
     perms.set_mode(perms.mode() | 0o111);
     fs::set_permissions(&appimage, perms).context("Failed to make AppImage executable")?;
 
-    // Dumb extraction pattern
+    // Dumb extraction pattern. For less complexity and faster than a full extraction
     let patterns = [
         "*.desktop",
         "*.png",
@@ -101,21 +100,30 @@ fn extract_appimage(appimage: &Path, cache_dir: &Path, squash_dir: &Path) -> Res
 
 fn confirm_overwrite(container: &Container, overwrite_metadata: &DesktopMetadata) -> Result<bool> {
     let desktop = container.desktop_path();
-    let contents =
-        fs::read_to_string(&desktop).context("Failed to read container .desktop file")?;
-    let metadata = desktop::desktop_metadata(&contents)?;
+    // We're letting metadata handle the error here so its okay to make new string
+    let contents = match fs::read_to_string(&desktop) {
+        Ok(c) => c,
+        _ => String::new(),
+    };
 
-    match metadata.version() {
-        Some(v) => println!(
-            "An app with id '{}' already exists: {} v{v}",
-            container.id(),
-            metadata.name()
-        ),
-        None => println!(
-            "An app with id '{}' already exists: {}",
-            container.id(),
-            metadata.name()
-        ),
+    match desktop::desktop_metadata(&contents) {
+        Ok(meta) => {
+            match meta.version() {
+                Some(v) => println!(
+                    "An app with id '{}' already exists: {} v{v}",
+                    container.id(),
+                    meta.name()
+                ),
+                None => println!(
+                    "An app with id '{}' already exists: {}",
+                    container.id(),
+                    meta.name()
+                ),
+            }
+        }
+        Err(_) => {
+            println!("An app with id '{}' already exists.", container.id());
+        }
     }
     match overwrite_metadata.version() {
         Some(v) => println!("Installing: {} v{v}", overwrite_metadata.name()),
@@ -178,8 +186,10 @@ pub fn list() -> Result<()> {
     // Checks if desktop entry is valid, if not print (broken) for name
     for con in containers {
         let desktop = con.desktop_path();
-        let contents =
-            fs::read_to_string(&desktop).context("Failed to read container .desktop file")?;
+        let contents = match fs::read_to_string(&desktop) {
+            Ok(c) => c,
+            _ => String::new(),
+        };
         match desktop::desktop_metadata(&contents) {
             Ok(m) => {
                 print!("- {} ({}", con.id(), m.name());
@@ -262,8 +272,11 @@ pub fn sync_container(
     let appimage_contents =
         fs::read_to_string(&appimage_desktop).context("Failed to read squash .desktop file")?;
     let appimage_contents = desktop::updated_desktop(&appimage_contents, container)?;
-    let installed_contents =
-        fs::read_to_string(&installed_desktop).context("Failed to read container .desktop file")?;
+    // If container doesn't have a desktop, just sync anyways
+    let installed_contents = match fs::read_to_string(&installed_desktop) {
+        Ok(c) => c,
+        _ => String::new(),
+    };
 
     if let Err(e) = fs::remove_dir_all(squash_dir) {
         eprintln!("Could not remove squashfs-root temp file: {e:#}");
@@ -296,6 +309,16 @@ pub fn sync_container(
     match (installed_metadata.version(), appimage_metadata.version()) {
         (Some(i), Some(a)) => println!(
             "{verb}: {} v{i} -> {} v{a}",
+            installed_metadata.name(),
+            appimage_metadata.name()
+        ),
+        (Some(i), None) => println!(
+            "{verb}: {} v{i} -> {}",
+            installed_metadata.name(),
+            appimage_metadata.name()
+        ),
+        (None, Some(a)) => println!(
+            "{verb}: {} -> {} v{a}",
             installed_metadata.name(),
             appimage_metadata.name()
         ),
