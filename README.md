@@ -9,6 +9,7 @@
 ```bash
 cargo install appto
 ```
+
 ### Building from source
 
 ```bash
@@ -21,22 +22,29 @@ cargo install --path .
 
 ```bash
 # Install and integrate an AppImage
+# Aliases: install, i
 appto add ~/Downloads/Test_Example.AppImage
 
 # List installed apps
+# Alias: ls
 appto list
 
+# Note: sync command does not sync icons, reinstall using 'appto add'
 # Re-sync a desktop entry after an AppImage self-updates
 appto sync test-example
 
-# Sync all installed apps
+# Sync all installed apps' desktop entries
 appto sync
 
-# Remove an app (files, menu entry, and symlinks)
-appto remove test-example
-```
+# Checks sync diff, no changes
+# Alias: --dry-run
+appto sync --check
 
-`add`, `remove`, and `list` also answer to `install`/`i`, `rm`, and `ls`.
+# Remove an app (files, menu entry, and symlinks)
+# Alias: rm
+appto remove test-example
+
+```
 
 ## Where things live
 
