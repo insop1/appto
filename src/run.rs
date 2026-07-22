@@ -17,22 +17,35 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
     paths::ensure_paths(&[&cache_dir, &data_dir])?;
 
     extract_appimage(appimage, &cache_dir, &squash_dir)?;
+
     // By now we should have squashfs-root set
     let desktop = desktop::desktop_from(&squash_dir)?;
     let contents = fs::read_to_string(&desktop).context("Failed to read squash .desktop file")?;
     let metadata = desktop::desktop_metadata(&contents)?;
 
     // Overwrite check then lock
-    let container = Container::new(&data_dir, metadata.slug());
+    let mut container = Container::new(&data_dir, metadata.slug());
     if !force && container.root().is_dir() && !confirm_overwrite(&container, &metadata)? {
         println!("Aborted.");
         return Ok(());
     }
 
     container.create()?;
-    let new_content = desktop::updated_desktop(&contents, &container)?;
+
+    // Installing icon has to go before updated_desktop
+    // updated_desktop relies on container.icon_path(), which can be None if no icon exists in
+    // container and no extension is specified. install_icon sets the icon_ext in container
     let dir_icon = squash_dir.join(".DirIcon");
-    container.install(&new_content, &dir_icon, appimage)?;
+    let resolved_icon = dir_icon.canonicalize().ok();
+    if let Some(icon) = resolved_icon
+        && let Err(e) = container.install_icon(&icon)
+    {
+        eprintln!("Warning: could not install icon: {e:#}");
+    }
+
+    let new_content = desktop::updated_desktop(&contents, &container)?;
+    container.install_desktop(&new_content)?;
+    container.install_appimage(appimage)?;
 
     // Removes squashfs-root after installing container
     if let Err(e) = fs::remove_dir_all(squash_dir) {

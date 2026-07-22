@@ -28,7 +28,10 @@ pub fn updated_desktop(contents: &str, container: &Container) -> Result<String> 
     let mut output = String::with_capacity(contents.len());
     for line in contents.lines() {
         if line.strip_prefix("Icon=").is_some() {
-            writeln!(output, "Icon={}", container.icon_path().display())?;
+            match container.icon_path() {
+                Some(ip) => writeln!(output, "Icon={}", ip.display())?,
+                None => writeln!(output, "Icon=")?,
+            };
         } else if let Some(v) = line.strip_prefix("Exec=") {
             writeln!(
                 output,

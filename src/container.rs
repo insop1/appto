@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 pub struct Container {
     root: PathBuf,
     id: String,
+    icon_ext: Option<String>,
 }
 
 impl Container {
@@ -13,6 +14,7 @@ impl Container {
         Container {
             root: data_dir.join(id),
             id: String::from(id),
+            icon_ext: None,
         }
     }
 
@@ -20,8 +22,16 @@ impl Container {
     pub fn appimage_path(&self) -> PathBuf {
         self.root.join(format!("{}.AppImage", self.id))
     }
-    pub fn icon_path(&self) -> PathBuf {
-        self.root.join(format!("{}.png", self.id))
+    pub fn icon_path(&self) -> Option<PathBuf> {
+        // If icon_ext is Some, then it means a new icon is installed. So using dumb path is okay here.
+        // Otherwise we check if there is an icon in the container and use that path instead
+        if let Some(ext) = &self.icon_ext {
+            return Some(self.root.join(format!("{}.{}", self.id, ext)));
+        }
+        ["png", "svg"]
+            .iter()
+            .map(|ext| self.root.join(format!("{}.{}", self.id, ext)))
+            .find(|p| p.exists())
     }
     pub fn desktop_path(&self) -> PathBuf {
         self.root.join(format!("{}.desktop", self.id))
@@ -47,19 +57,20 @@ impl Container {
     pub fn install_desktop(&self, contents: &str) -> Result<()> {
         atomic_write(contents, &self.desktop_path())
     }
-    pub fn install_icon(&self, dir_icon: &Path) -> Result<()> {
-        atomic_copy(dir_icon, &self.icon_path())
+    pub fn install_icon(&mut self, icon: &Path) -> Result<()> {
+        let ext = icon.extension().and_then(|s| s.to_str()).unwrap_or("png");
+        let dest = self.root.join(format!("{}.{}", self.id, ext));
+        atomic_copy(icon, &dest)?;
+        for other in ["png", "svg"] {
+            if other != ext {
+                let _ = fs::remove_file(self.root.join(format!("{}.{}", self.id, other)));
+            }
+        }
+        self.icon_ext = Some(String::from(ext));
+        Ok(())
     }
     pub fn install_appimage(&self, appimage: &Path) -> Result<()> {
         atomic_copy(appimage, &self.appimage_path())
-    }
-    pub fn install(&self, desktop_contents: &str, dir_icon: &Path, appimage: &Path) -> Result<()> {
-        self.install_desktop(desktop_contents)?;
-        if let Err(e) = self.install_icon(dir_icon) {
-            eprintln!("Warning: could not install icon: {e:#}");
-        }
-        self.install_appimage(appimage)?;
-        Ok(())
     }
 
     // Symlinks
