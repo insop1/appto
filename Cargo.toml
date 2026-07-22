@@ -1,6 +1,6 @@
 [package]
 name = "appto"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "A minimal CLI tool that integrates AppImages into your desktop"
 license = "MIT"
