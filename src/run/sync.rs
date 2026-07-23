@@ -1,5 +1,5 @@
 use crate::container::{self, Container};
-use crate::desktop::{self};
+use crate::desktop;
 use crate::paths;
 
 use anyhow::{Context, Result, bail};
