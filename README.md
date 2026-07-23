@@ -29,12 +29,15 @@ appto add ~/Downloads/Test_Example.AppImage
 # Alias: ls
 appto list
 
-# Note: sync command does not sync icons, reinstall using 'appto add'
 # Re-sync a desktop entry after an AppImage self-updates
 appto sync test-example
 
 # Sync all installed apps' desktop entries
 appto sync
+
+# Sync desktop with the icon
+appto sync --icon
+appto sync --icon test-example
 
 # Checks sync diff, no changes
 # Alias: --dry-run
