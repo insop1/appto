@@ -37,6 +37,8 @@ enum Commands {
 
         #[arg(long, visible_alias = "dry-run")]
         check: bool,
+        #[arg(long)]
+        icon: bool,
     },
 }
 
@@ -47,7 +49,7 @@ fn main() -> Result<()> {
         Commands::Add { path, force } => run::add(&path, force)?,
         Commands::Remove { id, force } => run::remove(&id, force)?,
         Commands::List => run::list()?,
-        Commands::Sync { id, check } => run::sync(&id, check)?,
+        Commands::Sync { id, check, icon } => run::sync(&id, check, icon)?,
     };
     Ok(())
 }
