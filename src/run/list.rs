@@ -7,7 +7,6 @@ use std::fs;
 
 pub fn list() -> Result<()> {
     let data_dir = paths::appto_data()?;
-    // Vec<Container> for each directories. For each, get desktop metadata.
 
     let id_width = 32;
     let name_width = 24;

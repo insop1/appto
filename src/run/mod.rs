@@ -23,6 +23,7 @@ pub(super) fn extract_appimage(appimage: &Path, cache_dir: &Path, squash_dir: &P
         fs::remove_dir_all(squash_dir).context("Failed to clear squashfs-root")?;
     }
 
+    // We are basically doing chmod +x on the AppImage
     let mut perms = fs::metadata(&appimage)
         .context("Failed to read AppImage metadata")?
         .permissions();

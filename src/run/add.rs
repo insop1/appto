@@ -14,7 +14,8 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
 
     super::extract_appimage(appimage, &cache_dir, &squash_dir)?;
 
-    // By now we should have squashfs-root set
+    // By now we should have squashfs-root set from extract_appimage
+    // which always extract to squashfs-root in tmp path
     let desktop = desktop::desktop_from(&squash_dir)?;
     let contents = fs::read_to_string(&desktop).context("Failed to read squash .desktop file")?;
     let metadata = desktop::desktop_metadata(&contents)?;
@@ -29,6 +30,8 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
 
     // Installing icon has to go before updated_desktop
     // updated_desktop relies on container.icon_path(), which can be None if no icon exists in container
+
+    // .DirIcon is a symlink in AppImages, we need the icon filename itself for other extension support
     let dir_icon = squash_dir.join(".DirIcon");
     let resolved_icon = dir_icon.canonicalize().ok();
     if let Some(icon) = resolved_icon
@@ -41,7 +44,6 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
     container.install_desktop(&new_content)?;
     container.install_appimage(appimage)?;
 
-    // Removes squashfs-root after installing container
     if let Err(e) = fs::remove_dir_all(squash_dir) {
         eprintln!("Could not remove squashfs-root temp file: {e:#}");
     }

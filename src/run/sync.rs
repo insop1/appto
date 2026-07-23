@@ -149,8 +149,6 @@ fn sync_container(
         container.install_desktop(&appimage_contents)?;
     }
 
-    // Message
-    // Gracefully handles instead of panic
     let verb = if args.check { "Would sync" } else { "Synced" };
     let (appimage_metadata, installed_metadata) = match (
         desktop::desktop_metadata(&appimage_contents),
