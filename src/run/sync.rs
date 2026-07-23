@@ -87,7 +87,10 @@ fn sync_icon(squash_dir: &Path, container: &mut Container, args: &SyncArgs) -> R
 
     // If no icon found in container, then we'll just install a new one
     let install = match container.icon_path() {
-        Some(installed_icon) => fs::read(&new_icon)? != fs::read(&installed_icon)?,
+        Some(installed_icon) => {
+            let matching_ext = installed_icon.extension() == new_icon.extension();
+            !matching_ext || fs::read(&new_icon)? != fs::read(&installed_icon)?
+        },
         None => true,
     };
     if !install {
