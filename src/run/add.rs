@@ -20,7 +20,7 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
     let metadata = desktop::desktop_metadata(&contents)?;
 
     // Overwrite check then lock
-    let mut container = Container::new(&data_dir, metadata.slug());
+    let container = Container::new(&data_dir, metadata.slug());
     if !force && container.root().is_dir() && !confirm_overwrite(&container, &metadata)? {
         println!("Aborted.");
         return Ok(());
@@ -28,8 +28,7 @@ pub fn add(appimage: &Path, force: bool) -> Result<()> {
     container.create()?;
 
     // Installing icon has to go before updated_desktop
-    // updated_desktop relies on container.icon_path(), which can be None if no icon exists in
-    // container and no extension is specified. install_icon sets the icon_ext in container
+    // updated_desktop relies on container.icon_path(), which can be None if no icon exists in container
     let dir_icon = squash_dir.join(".DirIcon");
     let resolved_icon = dir_icon.canonicalize().ok();
     if let Some(icon) = resolved_icon

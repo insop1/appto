@@ -35,12 +35,12 @@ fn sync_one(
     args: &SyncArgs,
 ) -> Result<()> {
     let slug = desktop::slug(id);
-    let mut container = Container::new(data_dir, &slug);
+    let container = Container::new(data_dir, &slug);
     if !container.root().is_dir() {
         bail!("{} is not installed", container.id());
     }
 
-    if !sync_container(&mut container, cache_dir, squash_dir, args)? {
+    if !sync_container(&container, cache_dir, squash_dir, args)? {
         println!("{} is already up to date.", container.id());
     }
     Ok(())
@@ -50,8 +50,8 @@ fn sync_all(data_dir: &Path, cache_dir: &Path, squash_dir: &Path, args: &SyncArg
     let containers = container::containers_from(data_dir)?;
 
     let mut synced = 0;
-    for mut con in containers {
-        match sync_container(&mut con, cache_dir, squash_dir, args) {
+    for con in containers {
+        match sync_container(&con, cache_dir, squash_dir, args) {
             Ok(synced_container) => {
                 if !synced_container {
                     continue;
@@ -75,7 +75,7 @@ fn sync_all(data_dir: &Path, cache_dir: &Path, squash_dir: &Path, args: &SyncArg
     Ok(())
 }
 
-fn sync_icon(squash_dir: &Path, container: &mut Container, args: &SyncArgs) -> Result<bool> {
+fn sync_icon(squash_dir: &Path, container: &Container, args: &SyncArgs) -> Result<bool> {
     if !args.sync_icon {
         return Ok(false);
     }
@@ -90,7 +90,7 @@ fn sync_icon(squash_dir: &Path, container: &mut Container, args: &SyncArgs) -> R
         Some(installed_icon) => {
             let matching_ext = installed_icon.extension() == new_icon.extension();
             !matching_ext || fs::read(&new_icon)? != fs::read(&installed_icon)?
-        },
+        }
         None => true,
     };
     if !install {
@@ -113,14 +113,14 @@ fn sync_icon(squash_dir: &Path, container: &mut Container, args: &SyncArgs) -> R
 }
 
 fn sync_container(
-    container: &mut Container,
+    container: &Container,
     cache_dir: &Path,
     squash_dir: &Path,
     args: &SyncArgs,
 ) -> Result<bool> {
     super::extract_appimage(&container.appimage_path(), cache_dir, squash_dir)?;
 
-    // Icon changes need to be before desktop. Check add()
+    // Icon changes need to be before desktop. Check add() or container.icon_path()
     let icon_synced = match sync_icon(squash_dir, container, args) {
         Ok(v) => v,
         Err(e) => {
