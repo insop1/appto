@@ -39,6 +39,7 @@ pub(super) fn extract_appimage(appimage: &Path, cache_dir: &Path, squash_dir: &P
         ".DirIcon",
         "usr/share/icons/*",
         "usr/share/pixmaps/*",
+        "usr/share/applications/*",
     ];
     for pattern in patterns {
         let status = Command::new(&appimage)

@@ -95,7 +95,7 @@ pub fn desktop_from(path: &Path) -> Result<PathBuf> {
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .find(|p| p.extension().is_some_and(|ext| ext == "desktop"))
-        .context("Could not find .desktop in AppImage")
+        .context("Could not find .desktop from path")
 }
 
 pub fn slug(name: &str) -> String {
