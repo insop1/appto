@@ -2,11 +2,13 @@ mod add;
 mod list;
 mod remove;
 mod sync;
+mod edit;
 
 pub use add::add;
 pub use list::list;
 pub use remove::remove;
 pub use sync::sync;
+pub use edit::edit;
 
 use anyhow::{Context, Result, bail};
 use std::fs;

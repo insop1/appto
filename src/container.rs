@@ -29,6 +29,9 @@ impl Container {
     pub fn desktop_path(&self) -> PathBuf {
         self.root.join(format!("{}.desktop", self.id))
     }
+    pub fn override_path(&self) -> PathBuf {
+        self.root.join("override.desktop")
+    }
     pub fn root(&self) -> &Path {
         &self.root
     }
@@ -63,6 +66,9 @@ impl Container {
     }
     pub fn install_appimage(&self, appimage: &Path) -> Result<()> {
         atomic_copy(appimage, &self.appimage_path())
+    }
+    pub fn install_override(&self, template: &str) -> Result<()> {
+        atomic_write(template, &self.override_path())
     }
 
     // Symlinks

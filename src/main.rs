@@ -1,6 +1,7 @@
 mod container;
 mod desktop;
 mod paths;
+mod overrides;
 mod run;
 
 use anyhow::Result;
@@ -40,6 +41,9 @@ enum Commands {
         #[arg(long)]
         icon: bool,
     },
+    Edit {
+        id: String,
+    }
 }
 
 fn main() -> Result<()> {
@@ -50,6 +54,7 @@ fn main() -> Result<()> {
         Commands::Remove { id, force } => run::remove(&id, force)?,
         Commands::List => run::list()?,
         Commands::Sync { id, check, icon } => run::sync(&id, check, icon)?,
+        Commands::Edit { id } => run::edit(&id)?,
     };
     Ok(())
 }
