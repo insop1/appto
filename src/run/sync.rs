@@ -1,6 +1,7 @@
 use crate::container::{self, Container};
 use crate::desktop;
 use crate::paths;
+use crate::overrides;
 
 use anyhow::{Context, Result, bail};
 use std::fs;
@@ -135,7 +136,15 @@ fn sync_container(
     let appimage_contents = desktop::updated_desktop(&appimage_contents, container)?;
 
     // If container doesn't have a desktop, just sync anyways
-    let installed_desktop = container.desktop_path();
+    let original_desktop = container.original_path();
+    let override_desktop = container.override_path();
+    let edited = original_desktop.is_file() && override_desktop.is_file();
+
+    let installed_desktop = if edited {
+        original_desktop
+    } else {
+        container.desktop_path()
+    };
     let installed_contents = fs::read_to_string(&installed_desktop).unwrap_or_default();
 
     if let Err(e) = fs::remove_dir_all(squash_dir) {
@@ -146,7 +155,16 @@ fn sync_container(
         return Ok(false);
     }
     if !args.check {
-        container.install_desktop(&appimage_contents)?;
+        if edited {
+            let override_contents = fs::read_to_string(override_desktop).context("Could not read .override.desktop")?;
+            let override_map = overrides::parse(&override_contents);
+            let new_contents = overrides::merge_contents(&appimage_contents, override_map)?;
+
+            container.install_original(&appimage_contents)?;
+            container.install_desktop(&new_contents)?;
+        } else {
+            container.install_desktop(&appimage_contents)?;
+        }
     }
 
     let verb = if args.check { "Would sync" } else { "Synced" };
