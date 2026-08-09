@@ -1,6 +1,6 @@
+use anyhow::Result;
 use std::collections::HashMap;
 use std::fmt::Write;
-use anyhow::Result;
 
 // Expected format for override.desktop
 
@@ -74,7 +74,8 @@ pub fn make_template(
             writeln!(override_contents, "{key}={value}")?;
             continue;
         }
-        let value = override_map.get(key)
+        let value = override_map
+            .get(key)
             .map(String::as_str)
             .unwrap_or_default();
         writeln!(override_contents, "# {key}={value}")?;
@@ -83,7 +84,10 @@ pub fn make_template(
     Ok(override_contents)
 }
 
-pub fn merge_contents(desktop_contents: &str, mut override_map: HashMap<String, String>) -> Result<String> {
+pub fn merge_contents(
+    desktop_contents: &str,
+    mut override_map: HashMap<String, String>,
+) -> Result<String> {
     let mut new_contents = String::with_capacity(desktop_contents.len());
 
     let mut entry_offset: usize = 0;
@@ -126,4 +130,3 @@ pub fn merge_contents(desktop_contents: &str, mut override_map: HashMap<String, 
 
     Ok(new_contents)
 }
-

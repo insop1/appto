@@ -1,7 +1,7 @@
 use crate::container::{self, Container};
 use crate::desktop;
-use crate::paths;
 use crate::overrides;
+use crate::paths;
 
 use anyhow::{Context, Result, bail};
 use std::fs;
@@ -156,7 +156,8 @@ fn sync_container(
     }
     if !args.check {
         if edited {
-            let override_contents = fs::read_to_string(override_desktop).context("Could not read .override.desktop")?;
+            let override_contents =
+                fs::read_to_string(override_desktop).context("Could not read .override.desktop")?;
             let override_map = overrides::parse(&override_contents);
             let new_contents = overrides::merge_contents(&appimage_contents, override_map)?;
 

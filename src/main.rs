@@ -1,7 +1,7 @@
 mod container;
 mod desktop;
-mod paths;
 mod overrides;
+mod paths;
 mod run;
 
 use anyhow::Result;
@@ -43,7 +43,7 @@ enum Commands {
     },
     Edit {
         id: String,
-    }
+    },
 }
 
 fn main() -> Result<()> {
