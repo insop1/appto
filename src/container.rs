@@ -24,13 +24,16 @@ impl Container {
         ["png", "svg"]
             .iter()
             .map(|ext| self.root.join(format!("{}.{}", self.id, ext)))
-            .find(|p| p.exists())
+            .find(|p| p.is_file())
     }
     pub fn desktop_path(&self) -> PathBuf {
         self.root.join(format!("{}.desktop", self.id))
     }
+    pub fn original_path(&self) -> PathBuf {
+        self.root.join(format!("{}.original.desktop", self.id))
+    }
     pub fn override_path(&self) -> PathBuf {
-        self.root.join("override.desktop")
+        self.root.join(format!("{}.override.desktop", self.id))
     }
     pub fn root(&self) -> &Path {
         &self.root
@@ -52,6 +55,9 @@ impl Container {
     }
     pub fn install_desktop(&self, contents: &str) -> Result<()> {
         atomic_write(contents, &self.desktop_path())
+    }
+    pub fn install_original(&self, contents: &str) -> Result<()> {
+        atomic_write(contents, &self.original_path())
     }
     pub fn install_icon(&self, icon: &Path) -> Result<()> {
         let ext = icon.extension().and_then(|s| s.to_str()).unwrap_or("png");

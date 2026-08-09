@@ -56,20 +56,28 @@ pub fn parse(contents: &str) -> HashMap<String, String> {
     hash_map
 }
 
-pub fn override_template(contents: &str) -> Result<String> {
-    let override_map = parse(&contents);
-
+// existing_map is the override changes the user makes
+// This is to keep user changes across regenerations as edit() regenerates it
+pub fn make_template(
+    override_map: &HashMap<String, String>,
+    existing_map: &HashMap<String, String>,
+) -> Result<String> {
     let mut override_contents = String::from(concat!(
         "[Desktop Entry]\n",
         "# Uncomment the ones you'd like to override, unlisted keys are ignored.\n",
+        "# Comment to undo an override.\n",
         "# These edits will persist when you sync.\n",
         "\n",
     ));
     for &key in KEYS {
+        if let Some(value) = existing_map.get(key) {
+            writeln!(override_contents, "{key}={value}")?;
+            continue;
+        }
         let value = override_map.get(key)
             .map(String::as_str)
             .unwrap_or_default();
-        writeln!(override_contents, "# {}={}", key, value)?;
+        writeln!(override_contents, "# {key}={value}")?;
     }
 
     Ok(override_contents)
