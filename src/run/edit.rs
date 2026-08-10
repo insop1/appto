@@ -8,11 +8,15 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-pub fn edit(id: &str) -> Result<()> {
+pub fn edit(id: &str, reset: bool) -> Result<()> {
     let data_dir = paths::appto_data()?;
     let container = Container::new(&data_dir, id);
     if !container.root().is_dir() {
         bail!("{id} does not exist")
+    }
+
+    if reset {
+        return reset_edits(&container);
     }
 
     let desktop = container.desktop_path();
@@ -49,6 +53,7 @@ pub fn edit(id: &str) -> Result<()> {
     let new_contents = overrides::merge_contents(&original_contents, override_map)?;
 
     container.install_desktop(&new_contents)?;
+    println!("Succesfully edited {id}.");
 
     Ok(())
 }
@@ -70,4 +75,26 @@ fn edit_overrides(override_desktop: &Path) -> Result<()> {
         bail!("Editor exited with {}", status);
     }
     Ok(())
+}
+
+fn reset_edits(container: &Container) -> Result<()> {
+    let desktop = container.desktop_path();
+    let override_desktop = container.override_path();
+    let original_desktop = container.original_path();
+
+    if !original_desktop.is_file() && !override_desktop.is_file() {
+        println!("{} has no edits.", container.id());
+        return Ok(());
+    }
+
+    if override_desktop.is_file() {
+        fs::remove_file(&override_desktop).context("Could not remove .override.desktop")?;
+    }
+    if !original_desktop.is_file() {
+        println!("{}.original.desktop does not exist.", container.id());
+        println!("Run 'appto sync' to restore original.");
+        return Ok(());
+    }
+
+    fs::rename(original_desktop, desktop).context("Could not rename .original.desktop to .desktop")
 }
