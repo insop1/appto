@@ -60,7 +60,7 @@ pub fn parse(contents: &str) -> HashMap<String, String> {
 // This is to keep user changes across regenerations as edit() regenerates it
 pub fn make_template(
     override_map: &HashMap<String, String>,
-    existing_map: &HashMap<String, String>,
+    existing_overrides: &HashMap<String, String>,
 ) -> Result<String> {
     let mut override_contents = String::from(concat!(
         "[Desktop Entry]\n",
@@ -70,7 +70,7 @@ pub fn make_template(
         "\n",
     ));
     for &key in KEYS {
-        if let Some(value) = existing_map.get(key) {
+        if let Some(value) = existing_overrides.get(key) {
             writeln!(override_contents, "{key}={value}")?;
             continue;
         }
