@@ -47,6 +47,8 @@ pub fn edit(id: &str, reset: bool) -> Result<()> {
 
     edit_overrides(&override_desktop).context("Failed to write with editor")?;
 
+    // We merge the override_map with the original content because it holds the untouched values
+    // The main desktop that's symlinked to applications needs its values overriden to show
     let override_content =
         fs::read_to_string(&override_desktop).context("Failed read from .override.desktop")?;
     let override_map = overrides::parse(&override_content);

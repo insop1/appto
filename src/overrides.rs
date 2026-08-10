@@ -90,6 +90,8 @@ pub fn merge_contents(
 ) -> Result<String> {
     let mut new_contents = String::with_capacity(desktop_contents.len());
 
+    // entry_offset is where we'll append the keys that don't exist in the original
+    // Which will be under [Desktop Entry]
     let mut entry_offset: usize = 0;
     let mut is_entry = false;
     for line in desktop_contents.lines() {
