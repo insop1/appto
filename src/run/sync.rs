@@ -35,8 +35,7 @@ fn sync_one(
     squash_dir: &Path,
     args: &SyncArgs,
 ) -> Result<()> {
-    let slug = desktop::slug(id);
-    let container = Container::new(data_dir, &slug);
+    let container = Container::new(data_dir, id);
     if !container.root().is_dir() {
         bail!("{} is not installed", container.id());
     }

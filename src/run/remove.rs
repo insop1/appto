@@ -1,19 +1,17 @@
 use crate::container::Container;
-use crate::desktop;
 use crate::paths;
 
 use anyhow::{Result, bail};
 use std::fs;
 
 pub fn remove(id: &str, force: bool) -> Result<()> {
-    let slug = desktop::slug(id);
     let data_dir = paths::appto_data()?;
-    let container = Container::new(&data_dir, &slug);
+    let container = Container::new(&data_dir, id);
     if !container.root().is_dir() {
-        bail!("No app with id '{slug}'");
+        bail!("No app with id '{id}'");
     }
 
-    if !force && !super::prompt(&format!("Removing '{slug}', is this okay? [y/N]: "))? {
+    if !force && !super::prompt(&format!("Removing '{id}', is this okay? [y/N]: "))? {
         println!("Aborted.");
         return Ok(());
     }
@@ -28,6 +26,6 @@ pub fn remove(id: &str, force: bool) -> Result<()> {
     }
 
     fs::remove_dir_all(container.root())?;
-    println!("Successfully removed '{slug}'");
+    println!("Successfully removed '{id}'");
     Ok(())
 }
