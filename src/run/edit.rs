@@ -16,6 +16,7 @@ pub fn edit(id: &str, reset: bool) -> Result<()> {
     }
 
     if reset {
+        println!("Successfully reset edits from {}", id);
         return reset_edits(&container);
     }
 
