@@ -43,9 +43,15 @@ appto sync --icon test-example
 # Alias: --dry-run
 appto sync --check
 
-# Remove an app (files, menu entry, and symlinks)
+# Remove an AppImage (files, menu entry, and symlinks)
 # Alias: rm
 appto remove test-example
+
+# Edit an AppImage's .desktop file
+appto edit test-example
+
+# Resets edits
+appto edit --reset
 
 ```
 
