@@ -50,9 +50,9 @@ pub fn edit(id: &str, reset: bool) -> Result<()> {
 
     // We merge the override_map with the original content because it holds the untouched values
     // The main desktop that's symlinked to applications needs its values overriden to show
-    let override_content =
+    let override_contents =
         fs::read_to_string(&override_desktop).context("Failed read from .override.desktop")?;
-    let override_map = overrides::parse(&override_content);
+    let override_map = overrides::parse(&override_contents);
     let new_contents = overrides::merge_contents(&original_contents, override_map)?;
 
     container.install_desktop(&new_contents)?;
